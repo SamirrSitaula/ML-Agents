@@ -9,29 +9,36 @@ BACKEND_URL = "https://ml-agents.onrender.com/chat"
 # Initialize conversation history
 if "history" not in st.session_state:
     st.session_state.history = []
+if "current_msg" not in st.session_state:
+    st.session_state.current_msg = ""
+if "send_flag" not in st.session_state:
+    st.session_state.send_flag = False
 
-# Display conversation history from top to bottom
+# Display conversation history
 for user_msg, reply in st.session_state.history:
     st.markdown(f"**You:** {user_msg}")
-    if "ml_prediction" in reply:  # spam_check response
+    if "ml_prediction" in reply:
         st.json(reply)
     else:
         st.markdown(f"**Agent:** {reply['reply']}")
 st.markdown("---")
 
-# Form for user input (sticks to bottom)
-with st.form(key="chat_form", clear_on_submit=True):
-    msg = st.text_input("Type your message here:")
-    submit = st.form_submit_button("Send")
+# Text input
+st.session_state.current_msg = st.text_input("Type your message here:", st.session_state.current_msg, key="input_box")
 
-    if submit and msg:
-        try:
-            resp = requests.post(BACKEND_URL, json={"message": msg})
-            st.session_state.history.append((msg, resp.json()))
-            # Streamlit automatically reruns and keeps new message visible
-        except Exception as e:
-            st.error(f"Error calling backend: {e}")
+# Detect send
+if st.button("Send"):
+    if st.session_state.current_msg.strip():
+        st.session_state.send_flag = True
 
-# Auto-scroll to bottom using a little trick
-st.markdown("<div id='bottom'></div>", unsafe_allow_html=True)
-st.markdown("<script>document.getElementById('bottom').scrollIntoView();</script>", unsafe_allow_html=True)
+# Call backend only once per send
+if st.session_state.send_flag:
+    try:
+        resp = requests.post(BACKEND_URL, json={"message": st.session_state.current_msg})
+        st.session_state.history.append((st.session_state.current_msg, resp.json()))
+    except Exception as e:
+        st.error(f"Error calling backend: {e}")
+    # Reset input and flag
+    st.session_state.current_msg = ""
+    st.session_state.send_flag = False
+    st.experimental_rerun()
