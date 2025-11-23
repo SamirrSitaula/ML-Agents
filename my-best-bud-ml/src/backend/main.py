@@ -72,7 +72,9 @@ from pydantic import BaseModel
 import joblib
 
 # Load your ML model
-model = joblib.load("models/spam_classifier.pkl")
+MODEL_FILE = "models/model.joblib"
+
+model = joblib.load(MODEL_FILE)
 
 app = FastAPI()
 
