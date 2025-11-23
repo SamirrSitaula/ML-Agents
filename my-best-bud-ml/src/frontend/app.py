@@ -55,10 +55,12 @@ st.markdown("---")
 # Text input at the bottom
 msg = st.text_area("Type your message here:", height=50)
 
-if st.button("Send") and msg:
-    try:
-        resp = requests.post(BACKEND_URL, json={"message": msg})
-        st.session_state.history.append((msg, resp.json()))
-        st.experimental_rerun()  # rerun script so input stays at bottom
-    except Exception as e:
-        st.error(f"Error calling backend: {e}")
+
+#depreciated 
+# if st.button("Send") and msg:
+#     try:
+#         resp = requests.post(BACKEND_URL, json={"message": msg})
+#         st.session_state.history.append((msg, resp.json()))
+#         st.experimental_rerun()  # rerun script so input stays at bottom
+#     except Exception as e:
+#         st.error(f"Error calling backend: {e}")
