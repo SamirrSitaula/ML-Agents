@@ -10,7 +10,7 @@ BACKEND_URL = "https://ml-agents.onrender.com/chat"
 if "history" not in st.session_state:
     st.session_state.history = []
 if "input_msg" not in st.session_state:
-    st.session_state.input_msg = ""  # preserve text area content
+    st.session_state.input_msg = ""  # preserve text input
 
 # Display conversation history
 for user_msg, reply in st.session_state.history:
@@ -22,15 +22,21 @@ for user_msg, reply in st.session_state.history:
 
 st.markdown("---")
 
-# Text area bound to session state
-st.session_state.input_msg = st.text_area("Type your message here:", height=50, value=st.session_state.input_msg)
+# Bind text area to session state
+st.session_state.input_msg = st.text_area(
+    "Type your message here:", 
+    height=50, 
+    value=st.session_state.input_msg
+)
 
 # Send button
 if st.button("Send") and st.session_state.input_msg.strip():
     try:
+        # Send the current input message
         resp = requests.post(BACKEND_URL, json={"message": st.session_state.input_msg})
+        # Append to history
         st.session_state.history.append((st.session_state.input_msg, resp.json()))
-        st.session_state.input_msg = ""  # clear text area after sending
-        # No rerun needed; Streamlit auto-reruns
+        # Clear input box
+        st.session_state.input_msg = ""
     except Exception as e:
         st.error(f"Error calling backend: {e}")
