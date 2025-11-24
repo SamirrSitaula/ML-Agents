@@ -5,7 +5,7 @@ st.set_page_config(page_title="My Best Bud Agent", layout="wide")
 st.title("My Best Bud — Hybrid ML + AI Agent")
 
 # Backend URL
-BACKEND_URL = "http://127.0.0.1:8000/chat"  # use local URL for testing
+BACKEND_URL = "https://ml-agents.onrender.com"  # use local URL for testing
 
 # Initialize history
 if "history" not in st.session_state:
