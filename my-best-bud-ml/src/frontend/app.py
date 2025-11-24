@@ -90,7 +90,7 @@ for user_msg, reply in st.session_state.history:
     if reply["intent"] == "spam_check":
         st.json(reply)
     else:
-        st.markdown(f"**Agent:** {reply['reply']}")
+        st.markdown(f"**Agent:** {reply.get('ai_reply', 'No response')}")
 
 # Horizontal separator
 st.markdown("---")

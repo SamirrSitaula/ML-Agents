@@ -65,27 +65,62 @@ def generate_ai_reply(message: str, max_tokens: int = 100):
 # -------------------------------
 # 4. API endpoint
 # -------------------------------
+# @app.post("/chat")
+# def chat_endpoint(request: ChatRequest):
+#     message = request.message
+
+#     # 1. ML spam detection
+#     spam_prediction = check_spam(message)
+
+#     # 2. AI response
+#     ai_reply = generate_ai_reply(message)
+
+#     # 3. Return both results
+#     return {
+#         "intent": "chat_hybrid",
+#         "ml_prediction": spam_prediction,
+#         "ai_reply": ai_reply
+#     }
+
+# # -------------------------------
+# # 5. Root endpoint (optional)
+# # -------------------------------
+# @app.get("/")
+# def root():
+#     return {"message": "My Best Bud Hybrid AI Agent is live!"}
+# #token export HF_TOKEN="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"
+
 @app.post("/chat")
 def chat_endpoint(request: ChatRequest):
-    message = request.message
+    message = request.message.lower()
 
-    # 1. ML spam detection
-    spam_prediction = check_spam(message)
+    # --- 1. SPAM CHECK ---
+    if message.startswith("check spam:"):
+        text = message.replace("check spam:", "").strip()
+        pred = spam_model.predict([text])[0]
+        return {
+            "intent": "spam_check",
+            "ml_prediction": pred
+        }
 
-    # 2. AI response
-    ai_reply = generate_ai_reply(message)
+    # --- 2. ML LEARNING MODE ---
+    if "learn ml" in message or "teach me ml" in message:
+        reply = generate_ai_reply(
+            "Explain machine learning to a beginner in simple language."
+        )
+        return {"intent": "learn_ml", "ai_reply": reply}
 
-    # 3. Return both results
+    if "dataset" in message:
+        reply = generate_ai_reply(
+            "Explain what datasets are in machine learning, with examples."
+        )
+        return {"intent": "learn_ml", "ai_reply": reply}
+
+    # --- 3. NORMAL CHAT ---
+    reply = generate_ai_reply(
+        f"You are My Best Bud, a friendly agent. Respond helpfully. User said: {message}"
+    )
     return {
-        "intent": "chat_hybrid",
-        "ml_prediction": spam_prediction,
-        "ai_reply": ai_reply
+        "intent": "chat",
+        "ai_reply": reply
     }
-
-# -------------------------------
-# 5. Root endpoint (optional)
-# -------------------------------
-@app.get("/")
-def root():
-    return {"message": "My Best Bud Hybrid AI Agent is live!"}
-#token export HF_TOKEN="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"
