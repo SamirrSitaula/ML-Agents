@@ -1,118 +1,91 @@
-# from fastapi import FastAPI
-# from pydantic import BaseModel
-# from src.agent.logic import agent_response
-
-# app = FastAPI()
-
-# from fastapi.middleware.cors import CORSMiddleware
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],   # Allow any domain
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-
-# class Message(BaseModel):
-#     message: str
-
-# @app.post("/chat")
-# def chat(req: Message):
-#     return agent_response(req.message)
-# from fastapi import FastAPI
-# from pydantic import BaseModel
-# import joblib
-
-# # Load your ML model (already trained)
-# model = joblib.load("models/spam_classifier.pkl")
-
-# app = FastAPI()
-
-# class Message(BaseModel):
-#     message: str
-
-# # Simple keyword-based intent detection
-# def detect_intent(text):
-#     text_lower = text.lower()
-#     if any(word in text_lower for word in ["spam", "check", "ham"]):
-#         return "spam_check"
-#     elif any(word in text_lower for word in ["ml", "machine learning", "ai", "learn"]):
-#         return "learn_ml"
-#     elif any(word in text_lower for word in ["hi", "hello", "how are you"]):
-#         return "small_talk"
-#     else:
-#         return "general"
-
-# @app.post("/chat")
-# def chat(msg: Message):
-#     intent = detect_intent(msg.message)
-    
-#     if intent == "spam_check":
-#         prediction = model.predict([msg.message])[0]
-#         probabilities = model.predict_proba([msg.message])[0]
-#         return {
-#             "intent": intent,
-#             "ml_prediction": prediction,
-#             "probabilities": {"ham": float(probabilities[0]), "spam": float(probabilities[1])}
-#         }
-    
-#     elif intent == "learn_ml":
-#         reply = "I can help you learn ML! Ask me about datasets, models, or deployment."
-#     elif intent == "small_talk":
-#         reply = "Hey! I am your Best Bud agent. How can I help you today?"
-#     else:  # general
-#         reply = "I am your Best Bud agent. Ask me to check spam, learn ML, or help with AI!"
-    
-#     return {"intent": intent, "reply": reply}
-
+# main.py
 from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+import os
 
-# Load your ML model
-MODEL_FILE = "models/model.joblib"
+# -------------------------------
+# 1. Setup
+# -------------------------------
+app = FastAPI(title="My Best Bud Hybrid AI Agent")
 
-model = joblib.load(MODEL_FILE)
+# Get path to project root (my-best-bud-ml)
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # from src/ -> my-best-bud-ml
+MODEL_PATH = os.path.join(BASE_DIR, "models/model.joblib")
+# Load your trained ML spam model
+spam_model = joblib.load(MODEL_PATH)
 
-app = FastAPI()
+# Load Hugging Face LLaMA-2 7B (chat)
+token = os.getenv("HF_TOKEN")  # grab your token from the environment
 
-class Message(BaseModel):
+tokenizer = AutoTokenizer.from_pretrained(
+    "meta-llama/Llama-2-7b-chat-hf",
+    token=token
+)
+hf_model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-2-7b-chat-hf",
+    device_map="auto",  # automatically uses GPU if available
+    use_auth_token=token
+)
+
+# -------------------------------
+# 2. Request schema
+# -------------------------------
+class ChatRequest(BaseModel):
     message: str
 
-# Improved intent detection
-def detect_intent(text):
-    text_lower = text.lower()
-    if any(word in text_lower for word in ["spam", "check", "ham"]):
-        return "spam_check"
-    elif any(word in text_lower for word in ["ml", "machine learning", "ai", "learn"]):
-        return "learn_ml"
-    elif any(word in text_lower for word in ["hi", "hello", "how are you"]):
-        return "small_talk"
-    else:
-        return "general"
+# -------------------------------
+# 3. Helper functions
+# -------------------------------
+def check_spam(message: str):
+    """
+    Use your ML model to predict spam.
+    """
+    pred = spam_model.predict([message])[0]
+    return pred
 
+def generate_ai_reply(message: str, max_tokens: int = 100):
+    """
+    Use LLaMA-2 to generate a response.
+    """
+    inputs = tokenizer(message, return_tensors="pt")
+    inputs = {k: v.to(hf_model.device) for k, v in inputs.items()}
+
+    outputs = hf_model.generate(
+        **inputs,
+        max_new_tokens=max_tokens,
+        do_sample=True,
+        temperature=0.7,
+    )
+    reply = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return reply
+
+# -------------------------------
+# 4. API endpoint
+# -------------------------------
 @app.post("/chat")
-def chat(msg: Message):
-    intent = detect_intent(msg.message)
-    
-    if intent == "spam_check":
-        prediction = model.predict([msg.message])[0]
-        probabilities = model.predict_proba([msg.message])[0]
-        return {
-            "intent": intent,
-            "ml_prediction": prediction,
-            "probabilities": {"ham": float(probabilities[0]), "spam": float(probabilities[1])}
-        }
-    
-    elif intent == "learn_ml":
-        reply = "I can help you learn ML! Ask me about datasets, models, or deployment."
-    
-    elif intent == "small_talk":
-        reply = "Hey! I am your Best Bud agent. How can I help you today?"
-    
-    else:
-        reply = "I am your Best Bud agent. Ask me to check spam, learn ML, or help with AI!"
-    
-    return {"intent": intent, "reply": reply}
+def chat_endpoint(request: ChatRequest):
+    message = request.message
+
+    # 1. ML spam detection
+    spam_prediction = check_spam(message)
+
+    # 2. AI response
+    ai_reply = generate_ai_reply(message)
+
+    # 3. Return both results
+    return {
+        "intent": "chat_hybrid",
+        "ml_prediction": spam_prediction,
+        "ai_reply": ai_reply
+    }
+
+# -------------------------------
+# 5. Root endpoint (optional)
+# -------------------------------
+@app.get("/")
+def root():
+    return {"message": "My Best Bud Hybrid AI Agent is live!"}
+#token export HF_TOKEN="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"

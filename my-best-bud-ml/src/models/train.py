@@ -1,41 +1,27 @@
-"""
-train.py
---------
-Trains ML model and saves model.joblib
-"""
-
-import pandas as pd
+from fastapi import FastAPI
 import joblib
-from sklearn.metrics import accuracy_score
-from pipeline import create_pipeline
-import os
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-TRAIN_FILE = "data/processed/train.csv"
-TEST_FILE = "data/processed/test.csv"
-MODEL_OUT = "models/model.joblib"
+app = FastAPI()
 
-def train():
-    os.makedirs("models", exist_ok=True)
+# Load your ML spam model
+spam_model = joblib.load("/Users/samirsitaula/Documents/Data-ML-Agents/my-best-bud-ml/models/model.joblib")
 
-    train = pd.read_csv(TRAIN_FILE)
-    test = pd.read_csv(TEST_FILE)
+# Load Hugging Face LLaMA-2
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
+hf_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
 
-    X_train = train["text"]
-    y_train = train["label"]
+@app.post("/chat")
+def chat_endpoint(message: str):
+    # 1. Check spam
+    ml_pred = spam_model.predict([message])[0]
 
-    X_test = test["text"]
-    y_test = test["label"]
+    # 2. Generate AI response (simplified)
+    inputs = tokenizer(message, return_tensors="pt")
+    outputs = hf_model.generate(**inputs, max_new_tokens=50)
+    hf_reply = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    model = create_pipeline()
-    model.fit(X_train, y_train)
-
-    preds = model.predict(X_test)
-    acc = accuracy_score(y_test, preds)
-
-    print("Accuracy:", acc)
-
-    joblib.dump(model, MODEL_OUT)
-    print("Saved model to:", MODEL_OUT)
-
-if __name__ == "__main__":
-    train()
+    return {
+        "ml_prediction": ml_pred,
+        "ai_reply": hf_reply
+    }

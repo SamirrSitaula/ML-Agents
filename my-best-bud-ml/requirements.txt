@@ -9,3 +9,4 @@ uvicorn
 streamlit
 requests
 python-dotenv
+torch
