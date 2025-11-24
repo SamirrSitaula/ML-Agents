@@ -26,9 +26,10 @@ tokenizer = AutoTokenizer.from_pretrained(
 )
 hf_model = AutoModelForCausalLM.from_pretrained(
     "meta-llama/Llama-2-7b-chat-hf",
-    device_map="auto",  # automatically uses GPU if available
-    use_auth_token=token
+    device_map="auto",
+    token=token
 )
+
 
 # -------------------------------
 # 2. Request schema
