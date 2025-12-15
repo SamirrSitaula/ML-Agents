@@ -9,7 +9,8 @@ import requests
 st.set_page_config(page_title="My Best Bud Agent", layout="wide")
 st.title("🤖 My Best Bud — Hybrid ML + AI Agent")
 
-BACKEND_URL = "http://127.0.0.1:8001/chat"
+# BACKEND_URL = "http://127.0.0.1:8001/chat"
+BACKEND_URL = "https://my-best-bud.onrender.com"
 
 
 # Session state
