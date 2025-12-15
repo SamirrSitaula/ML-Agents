@@ -1,19 +1,28 @@
+
+
 import streamlit as st
 import requests
 
+
+# Page setup
+
 st.set_page_config(page_title="My Best Bud Agent", layout="wide")
-st.title("My Best Bud — Hybrid ML + AI Agent")
+st.title("🤖 My Best Bud — Hybrid ML + AI Agent")
 
-# Backend URL
-BACKEND_URL = "https://ml-agents.onrender.com"  # use local URL for testing
+BACKEND_URL = "http://127.0.0.1:8001/chat"
 
-# Initialize history
+
+# Session state
+
 if "history" not in st.session_state:
     st.session_state.history = []
 
+
 # Display chat history
+
 for user_msg, reply in st.session_state.history:
     st.markdown(f"**You:** {user_msg}")
+
     if reply["intent"] == "spam_check":
         st.json(reply)
     else:
@@ -21,13 +30,21 @@ for user_msg, reply in st.session_state.history:
 
 st.markdown("---")
 
-# Input box
-msg = st.text_input("Type your message here:")
+
+# Input
+
+msg = st.text_input("Type your message:")
 
 if st.button("Send") and msg:
     try:
-        response = requests.post(BACKEND_URL, json={"message": msg})
+        response = requests.post(
+            BACKEND_URL,
+            json={"message": msg},
+            timeout=120
+        )
+        response.raise_for_status()
         st.session_state.history.append((msg, response.json()))
-        st.experimental_rerun()  # rerun safely
-    except Exception as e:
+        st.rerun()
+
+    except requests.exceptions.RequestException as e:
         st.error(f"Error calling backend: {e}")

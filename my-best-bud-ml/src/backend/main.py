@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
@@ -5,89 +6,102 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import os
 
-# -------------------------------
-# 1. Setup
-# -------------------------------
+
+# 1. App setup
+
 app = FastAPI(title="My Best Bud Hybrid AI Agent")
 
-# Paths
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # from src/ -> my-best-bud-ml
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "models/model.joblib")
 
-# Load spam ML model
+
+# 2. Load ML spam model
+
 spam_model = joblib.load(MODEL_PATH)
 
-# Load Hugging Face LLaMA-2 model
-HF_TOKEN = os.getenv("HF_TOKEN")
-if HF_TOKEN is None:
-    raise RuntimeError("HF_TOKEN not set in environment")
 
-tokenizer = AutoTokenizer.from_pretrained(
-    "meta-llama/Llama-2-7b-chat-hf",
-    token=HF_TOKEN
-)
-hf_model = AutoModelForCausalLM.from_pretrained(
-    "meta-llama/Llama-2-7b-chat-hf",
-    device_map="auto",
-    token=HF_TOKEN
-)
+# 3. Load HF model ONCE
 
-# -------------------------------
-# 2. Request schema
-# -------------------------------
+MODEL_NAME = "distilgpt2"
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+hf_model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+
+# Device (Mac optimized)
+device = "mps" if torch.backends.mps.is_available() else "cpu"
+hf_model = hf_model.to(device)
+hf_model.eval()
+
+
+# 4. Request schema
+
 class ChatRequest(BaseModel):
     message: str
 
-# -------------------------------
-# 3. Helper functions
-# -------------------------------
+
+# 5. Helper functions
+
 def check_spam(text: str):
-    pred = spam_model.predict([text])[0]
-    return pred
+    return spam_model.predict([text])[0]
 
 def generate_ai_reply(text: str, max_tokens: int = 50):
-    inputs = tokenizer(text, return_tensors="pt")
-    inputs = {k: v.to(hf_model.device) for k, v in inputs.items()}
+    inputs = tokenizer(text, return_tensors="pt").to(device)
 
-    outputs = hf_model.generate(
-        **inputs,
-        max_new_tokens=max_tokens,
-        do_sample=True,
-        temperature=0.7
-    )
-    reply = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    with torch.no_grad():
+        outputs = hf_model.generate(
+            **inputs,
+            max_new_tokens=max_tokens,
+            do_sample=True,
+            temperature=0.7,
+            pad_token_id=tokenizer.eos_token_id
+        )
+
+    # Remove prompt from output
+    generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+    reply = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+
     return reply.strip()
 
-# -------------------------------
-# 4. API endpoint
-# -------------------------------
+
+# 6. API endpoint
+
 @app.post("/chat")
 def chat_endpoint(request: ChatRequest):
     msg = request.message
     msg_lower = msg.lower()
 
-    # --- 1. Spam check ---
+    # --- Spam check ---
     if msg_lower.startswith("check spam:"):
         text = msg[len("check spam:"):].strip()
         pred = check_spam(text)
         return {"intent": "spam_check", "ml_prediction": pred}
 
-    # --- 2. ML learning mode ---
+    # --- Learning mode ---
     if "learn ml" in msg_lower or "teach me ml" in msg_lower:
-        reply = generate_ai_reply("Explain machine learning to a beginner in simple language.")
+        reply = generate_ai_reply(
+            "Explain machine learning to a beginner in simple language."
+        )
         return {"intent": "learn_ml", "ai_reply": reply}
 
     if "dataset" in msg_lower:
-        reply = generate_ai_reply("Explain what datasets are in machine learning, with examples.")
+        reply = generate_ai_reply(
+            "Explain what datasets are in machine learning, with examples."
+        )
         return {"intent": "learn_ml", "ai_reply": reply}
 
-    # --- 3. Normal chat ---
-    reply = generate_ai_reply(f"You are My Best Bud, a friendly agent. Respond helpfully. User said: {msg}")
+    # --- Normal chat ---
+    reply = generate_ai_reply(
+        f"You are My Best Bud, a friendly agent. Respond helpfully. User said: {msg}"
+    )
+    reply = reply.strip()
+    if not reply:
+        reply = "Sorry, I didn't understand that. Can you rephrase?"
+
     return {"intent": "chat", "ai_reply": reply}
 
-# -------------------------------
-# 5. Root endpoint
-# -------------------------------
+
+# 7. Health check
+
 @app.get("/")
 def root():
-    return {"message": "My Best Bud Hybrid AI Agent is live!"}
+    return {"status": "My Best Bud backend is running"}
