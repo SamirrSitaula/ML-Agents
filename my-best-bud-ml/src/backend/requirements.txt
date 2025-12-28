@@ -9,5 +9,5 @@ uvicorn
 streamlit
 requests
 python-dotenv
-torch
+torch==2.8.0+cpu --index-url https://download.pytorch.org/whl/cpu
 transformers
