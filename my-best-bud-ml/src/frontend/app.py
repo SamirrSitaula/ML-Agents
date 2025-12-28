@@ -10,7 +10,11 @@ st.set_page_config(page_title="My Best Bud Agent", layout="wide")
 st.title("🤖 My Best Bud — Hybrid ML + AI Agent")
 
 # BACKEND_URL = "http://127.0.0.1:8001/chat"
-BACKEND_URL = "https://my-best-bud.onrender.com/chat"
+# BACKEND_URL = "https://my-best-bud.onrender.com/chat"
+#temp backened url when using ngrok
+BACKEND_URL = "https://flouncily-uneroding-julie.ngrok-free.dev/chat"
+
+
 
 
 # Session state
